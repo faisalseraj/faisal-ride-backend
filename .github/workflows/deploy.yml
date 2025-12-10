@@ -1,0 +1,284 @@
+name: Build & Deploy Backend (Test & Dev)
+
+on:
+  push:
+    branches: [ test, dev ]
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        type: string
+
+env:
+  NODE_VERSION: '22.x'
+
+jobs:
+  verify_secrets:
+    runs-on: ubuntu-latest
+    environment: test
+    steps:
+      - name: Verify required secrets
+        run: |
+          REQUIRED=(
+            MONGODB_URL
+            JWT_SECRET
+            SENDER_EMAIL
+            SENDER_NAME
+            SENDGRID_KEY
+            COOKIE_SECRET
+            SMS_HOST
+            IPINFO_API_KEY
+            BACKEND_URL
+            WEB_CLIENT
+            GEMINI_API_KEY
+            OPENAI_API_KEY
+            FREE_GPT_MODAL
+            PAID_GPT_MODAL
+            XAI_API_KEY
+            EMAIL_VISIT_NOW_LINK
+            COMPUTER_VISION_ENDPOINT
+            COMPUTER_VISION_KEY
+            PASSWORD_DECRYPT_KEY
+            GOOGLE_VISION_OCR_KEY
+            CUSTOM_OCR_URL
+            AWS_ACCESS_KEY_ID
+            AWS_SECRET_ACCESS_KEY
+            AWS_REGION
+            S3_BUCKET_TOW_REQUESTS
+            VAPID_PRIVATE_KEY
+            VAPID_PUBLIC_KEY
+            HOST
+            USERNAME
+            SSH_PRIVATE_KEY
+            TWILIO_ACCOUNT_SID
+            TWILIO_AUTH_TOKEN
+            TWILIO_FROM_NUMBER
+            STRIPE_SECRET_KEY
+            STRIPE_WEBHOOK_SECRET
+            STRIPE_FRONTEND_URL
+          )
+          MISSING=0
+          for key in "${REQUIRED[@]}"; do
+            if [ -z "${!key}" ]; then
+              echo "::error::$key is not set!"
+              MISSING=1
+            else
+              echo "$key is set."
+            fi
+          done
+          if [ "$MISSING" = "1" ]; then exit 1; fi
+        env:
+          MONGODB_URL: ${{ secrets.MONGODB_URL }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          SENDER_EMAIL: ${{ secrets.SENDER_EMAIL }}
+          SENDER_NAME: ${{ secrets.SENDER_NAME }}
+          SENDGRID_KEY: ${{ secrets.SENDGRID_KEY }}
+          COOKIE_SECRET: ${{ secrets.COOKIE_SECRET }}
+          SMS_HOST: ${{ secrets.SMS_HOST }}
+          IPINFO_API_KEY: ${{ secrets.IPINFO_API_KEY }}
+          BACKEND_URL: ${{ secrets.BACKEND_URL }}
+          WEB_CLIENT: ${{ secrets.WEB_CLIENT }}
+          GCP_SECRET: ${{ secrets.GCP_SECRET }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          FREE_GPT_MODAL: ${{ secrets.FREE_GPT_MODAL }}
+          PAID_GPT_MODAL: ${{ secrets.PAID_GPT_MODAL }}
+          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+          EMAIL_VISIT_NOW_LINK: ${{ secrets.EMAIL_VISIT_NOW_LINK }}
+          COMPUTER_VISION_ENDPOINT: ${{ secrets.COMPUTER_VISION_ENDPOINT }}
+          COMPUTER_VISION_KEY: ${{ secrets.COMPUTER_VISION_KEY }}
+          PASSWORD_DECRYPT_KEY: ${{ secrets.PASSWORD_DECRYPT_KEY }}
+          GOOGLE_VISION_OCR_KEY: ${{ secrets.GOOGLE_VISION_OCR_KEY }}
+          CUSTOM_OCR_URL: ${{ secrets.CUSTOM_OCR_URL }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          S3_BUCKET_TOW_REQUESTS: ${{ secrets.S3_BUCKET_TOW_REQUESTS }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          HOST: ${{ secrets.HOST }}
+          USERNAME: ${{ secrets.USERNAME }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TWILIO_FROM_NUMBER: ${{ secrets.TWILIO_FROM_NUMBER }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          STRIPE_FRONTEND_URL: ${{ secrets.STRIPE_FRONTEND_URL }}
+  deploy_backend:
+    needs: verify_secrets
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name }}
+    steps:
+      - name: Deploy Backend via SSH
+        uses: appleboy/ssh-action@v0.1.6
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          script: |
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
+            cd ~/hit-parking-manager || mkdir -p ~/hit-parking-manager && cd ~/hit-parking-manager
+
+            if [ -d hit-parking-manager-backend ]; then
+              cd hit-parking-manager-backend
+              # Stash any local changes to avoid merge conflicts
+              git add .
+              git stash
+              git checkout ${{ github.ref_name }}
+              git pull origin ${{ github.ref_name }}
+            else
+              git clone git@github.com:faisalseraj/hit-parking-manager-backend.git
+              cd hit-parking-manager-backend
+              git checkout ${{ github.ref_name }}
+            fi
+
+            # Remove existing .env file if it exists
+            rm -f .env
+            
+            # Write .env file from GitHub secrets with proper permissions
+            cat > .env <<EOF
+            PORT=3000
+            SOCKET_PORT=4000
+            MONGODB_URL=${{ secrets.MONGODB_URL }}
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            JWT_ACCESS_EXPIRATION_MINUTES=8640
+            JWT_REFRESH_EXPIRATION_DAYS=30
+            JWT_RESET_PASSWORD_EXPIRATION_MINUTES=10
+            JWT_VERIFY_EMAIL_EXPIRATION_MINUTES=10
+            SENDER_EMAIL=${{ secrets.SENDER_EMAIL }}
+            SENDER_NAME=${{ secrets.SENDER_NAME }}
+            SENDGRID_KEY=${{ secrets.SENDGRID_KEY }}
+            COOKIE_SECRET=${{ secrets.COOKIE_SECRET }}
+            SMS_HOST=${{ secrets.SMS_HOST }}
+            IPINFO_API_KEY=${{ secrets.IPINFO_API_KEY }}
+            BACKEND_URL=${{ secrets.BACKEND_URL }}
+            SERVER_TYPE=${{ secrets.SERVER_TYPE }}
+            WEB_CLIENT=${{ secrets.WEB_CLIENT }}
+            GCP_SECRET=${{ secrets.GCP_SECRET }}
+            ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
+            GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+            OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+            FREE_GPT_MODAL=${{ secrets.FREE_GPT_MODAL }}
+            PAID_GPT_MODAL=${{ secrets.PAID_GPT_MODAL }}
+            XAI_API_KEY=${{ secrets.XAI_API_KEY }}
+            EMAIL_VISIT_NOW_LINK=${{ secrets.EMAIL_VISIT_NOW_LINK }}
+            COMPUTER_VISION_ENDPOINT=${{ secrets.COMPUTER_VISION_ENDPOINT }}
+            COMPUTER_VISION_KEY=${{ secrets.COMPUTER_VISION_KEY }}
+            PASSWORD_DECRYPT_KEY=${{ secrets.PASSWORD_DECRYPT_KEY }}
+            GOOGLE_VISION_OCR_KEY=${{ secrets.GOOGLE_VISION_OCR_KEY }}
+            CUSTOM_OCR_URL=${{ secrets.CUSTOM_OCR_URL }}
+            AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
+            AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            AWS_REGION=${{ secrets.AWS_REGION }}
+            S3_BUCKET_TOW_REQUESTS=${{ secrets.S3_BUCKET_TOW_REQUESTS }}
+            VAPID_PRIVATE_KEY=${{ secrets.VAPID_PRIVATE_KEY }}
+            VAPID_PUBLIC_KEY=${{ secrets.VAPID_PUBLIC_KEY }}
+            TWILIO_ACCOUNT_SID=${{ secrets.TWILIO_ACCOUNT_SID }}
+            TWILIO_AUTH_TOKEN=${{ secrets.TWILIO_AUTH_TOKEN }}
+            TWILIO_FROM_NUMBER=${{ secrets.TWILIO_FROM_NUMBER }}
+            STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}
+            STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }}
+            STRIPE_FRONTEND_URL=${{ secrets.STRIPE_FRONTEND_URL }}
+            HOST=${{ secrets.HOST }}
+            USERNAME=${{ secrets.USERNAME }}
+            SSH_PRIVATE_KEY=${{ secrets.SSH_PRIVATE_KEY }}
+            EOF
+            
+            # Set proper permissions for .env file
+            chmod 644 .env
+            chown $USER:$USER .env
+            
+            # Verify .env file was created successfully
+            if [ ! -f .env ]; then
+              echo "Error: .env file was not created!"
+              exit 1
+            fi
+            
+            # Check if .env file is readable
+            if [ ! -r .env ]; then
+              echo "Error: .env file is not readable!"
+              exit 1
+            fi
+            
+            # Debug: Show current directory and file permissions
+            echo "Current directory: $(pwd)"
+            echo "Directory contents:"
+            ls -la
+            echo ".env file permissions:"
+            ls -la .env
+            
+            # Install dependencies and tools
+            npm i -g yarn pm2
+            sudo apt-get update && sudo apt-get install -y curl
+            yarn install --frozen-lockfile
+
+            # Debug: Check if .env file is still readable after yarn install
+            echo "Checking .env file after yarn install:"
+            if [ -r .env ]; then
+              echo ".env file is readable"
+              echo "First few lines of .env:"
+              head -5 .env
+            else
+              echo "Error: .env file is not readable after yarn install!"
+              exit 1
+            fi
+
+            # Build the application
+            echo "Building TypeScript application..."
+            yarn compile
+            if [ $? -ne 0 ]; then
+              echo "Error: Build failed!"
+              exit 1
+            fi
+
+            # Verify build output exists
+            if [ ! -f dist/index.js ]; then
+              echo "Error: Build output dist/index.js not found!"
+              exit 1
+            fi
+            echo "Build completed successfully!"
+
+            # Update PM2 to latest version
+            echo "Updating PM2 to latest version..."
+            pm2 update
+
+            # Start or restart the application
+            if pm2 describe backend-server > /dev/null; then
+              echo "Restarting existing backend-server..."
+              # Stop the existing process first
+              pm2 stop backend-server
+              pm2 delete backend-server
+            fi
+            
+            echo "Starting new backend-server..."
+            # Use PM2 directly to ensure .env file is loaded
+            pm2 start ecosystem.config.json
+            
+            # Verify the process started successfully
+            sleep 10
+            if pm2 describe backend-server > /dev/null; then
+              echo "Backend server started successfully!"
+              
+              # Health check - verify the server is responding
+              echo "Performing health check..."
+              sleep 5
+              if curl -f http://localhost:3000/checkServer > /dev/null 2>&1; then
+                echo "Health check passed - server is responding!"
+              else
+                echo "Warning: Health check failed, but server is running. Check logs for details."
+                pm2 logs backend-server --lines 20
+              fi
+              
+              pm2 save
+            else
+              echo "Error: Backend server failed to start!"
+              pm2 logs backend-server --lines 50
+              exit 1
+            fi
