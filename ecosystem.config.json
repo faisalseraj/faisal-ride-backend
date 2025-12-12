@@ -1,0 +1,17 @@
+{
+  "apps": [
+    {
+      "name": "backend-server",
+      "script": "dist/index.js",
+      "node_args": "--max-old-space-size=4096 --experimental-modules --es-module-specifier-resolution=node",
+      "instances": 1,
+      "autorestart": true,
+      "watch": true,
+      "time": true,
+      "env_file": ".env",
+      "env": {
+        "NODE_ENV": "production"
+      }
+    }
+  ]
+}

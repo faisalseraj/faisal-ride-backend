@@ -1,0 +1,26 @@
+# Dependencies
+node_modules
+public
+# Ignore JSON files with "gcpsecret" in the filename
+# src/config/secrets/serviceKey.json
+# Yarn error logs
+yarn-error.log
+yarn.lock
+package-lock.json
+*.csv
+
+# Ignore environment variables files, except for example files
+.env*
+!.env*.example
+
+# Code coverage reports
+coverage
+
+# Build output folder
+dist
+
+# Docker volume
+data
+head
+.DS_Store
+tsconfig.tsbuildinfo
