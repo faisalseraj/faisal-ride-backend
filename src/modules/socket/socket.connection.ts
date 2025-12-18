@@ -197,6 +197,100 @@ export const UserSocketConnection = (socket: Socket) => {
     }
   });
 
+  // Trip room handlers
+  socket.on('joinTripRoom', async (data: { tripId: string }) => {
+    const { tripId } = data;
+    if (tripId) {
+      socket.join(`trip-${tripId}`);
+      console.log(`🚗 [SOCKET] User joined trip room: ${tripId}`);
+    }
+  });
+
+  socket.on('leaveTripRoom', async (data: { tripId: string }) => {
+    const { tripId } = data;
+    if (tripId) {
+      socket.leave(`trip-${tripId}`);
+      console.log(`🚗 [SOCKET] User left trip room: ${tripId}`);
+    }
+  });
+
+  // Trip event handlers
+  socket.on('tripEvent', async (data: { eventType: string; tripId: string; userId: string; payload?: any }) => {
+    try {
+      const { eventType, tripId, userId } = data;
+      console.log('🚗 [SOCKET] Handling trip event:', { eventType, tripId, userId });
+
+      // Join trip room if not already joined
+      socket.join(`trip-${tripId}`);
+
+      // Handle different trip event types
+      switch (eventType) {
+        case 'viewTrip':
+          console.log(`🚗 [SOCKET] User ${userId} viewing trip ${tripId}`);
+          // Could emit to trip room that someone is viewing
+          socket.to(`trip-${tripId}`).emit('tripNotification', {
+            eventType: 'tripViewed',
+            tripId,
+            viewedBy: userId,
+            timestamp: new Date(),
+          });
+          break;
+
+        case 'subscribeTrip':
+          console.log(`🚗 [SOCKET] User ${userId} subscribing to trip ${tripId}`);
+          socket.join(`trip-${tripId}`);
+          break;
+
+        case 'unsubscribeTrip':
+          console.log(`🚗 [SOCKET] User ${userId} unsubscribing from trip ${tripId}`);
+          socket.leave(`trip-${tripId}`);
+          break;
+
+        default:
+          console.log('🚗 [SOCKET] Unknown trip event type:', eventType);
+      }
+    } catch (error) {
+      console.error('❌ [SOCKET] Error handling trip event:', error);
+      socket.emit('tripError', {
+        eventType: data.eventType,
+        message: 'Failed to handle trip event',
+      });
+    }
+  });
+
+  // Booking event handlers
+  socket.on('bookingEvent', async (data: { eventType: string; tripId: string; userId: string; payload?: any }) => {
+    try {
+      const { eventType, tripId, userId } = data;
+      console.log('🎫 [SOCKET] Handling booking event:', { eventType, tripId, userId });
+
+      // Join trip room if not already joined
+      socket.join(`trip-${tripId}`);
+
+      // Handle different booking event types
+      switch (eventType) {
+        case 'subscribeBooking':
+          console.log(`🎫 [SOCKET] User ${userId} subscribing to booking updates for trip ${tripId}`);
+          socket.join(`trip-${tripId}`);
+          break;
+
+        case 'unsubscribeBooking':
+          console.log(`🎫 [SOCKET] User ${userId} unsubscribing from booking updates for trip ${tripId}`);
+          socket.leave(`trip-${tripId}`);
+          break;
+
+        default:
+          console.log('🎫 [SOCKET] Unknown booking event type:', eventType);
+      }
+    } catch (error) {
+      console.error('❌ [SOCKET] Error handling booking event:', error);
+      socket.emit('bookingError', {
+        eventType: data.eventType,
+        message: 'Failed to handle booking event',
+      });
+    }
+  });
+
   // Generic notification handler for all tow request related events
   socket.on('towRequestEvent', async (data: { eventType: string; towRequestId: string; userId: string; payload?: any }) => {
     try {

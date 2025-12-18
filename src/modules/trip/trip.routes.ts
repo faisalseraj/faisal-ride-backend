@@ -9,65 +9,27 @@ const router = express.Router();
 
 router
   .route('/')
-  .post(
-    auth(),
-    validate(tripValidation.createTrip),
-    tripController.createTrip
-  )
-  .get(
-    authOptional(),
-    validate(tripValidation.searchTrips),
-    tripController.searchTrips
-  );
+  .post(auth(), validate(tripValidation.createTrip), tripController.createTrip)
+  .get(authOptional(), validate(tripValidation.searchTrips), tripController.searchTrips);
 
-router
-  .route('/my-trips')
-  .get(auth(), tripController.getMyTrips);
+router.route('/my-trips').get(auth(), tripController.getMyTrips);
 
-router
-  .route('/my-bookings')
-  .get(auth(), tripController.getMyBookings);
+router.route('/my-bookings').get(auth(), tripController.getMyBookings);
+
+router.route('/:tripId/book').post(auth(), validate(tripValidation.bookTrip), tripController.bookTrip);
+
+router.route('/:tripId/cancel-booking').post(auth(), validate(tripValidation.cancelBooking), tripController.cancelBooking);
+
+router.route('/:tripId/bookings/:passengerId/accept').post(auth(), tripController.acceptBooking);
+
+router.route('/:tripId/bookings/:passengerId/reject').post(auth(), tripController.rejectBooking);
+
+router.route('/:tripId/complete').post(auth(), validate(tripValidation.completeTrip), tripController.completeTrip);
 
 router
   .route('/:tripId')
-  .get(
-    authOptional(),
-    validate(tripValidation.getTrip),
-    tripController.getTrip
-  )
-  .patch(
-    auth(),
-    validate(tripValidation.updateTrip),
-    tripController.updateTrip
-  )
-  .delete(
-    auth(),
-    validate(tripValidation.deleteTrip),
-    tripController.deleteTrip
-  );
-
-router
-  .route('/:tripId/book')
-  .post(
-    auth(),
-    validate(tripValidation.bookTrip),
-    tripController.bookTrip
-  );
-
-router
-  .route('/:tripId/cancel-booking')
-  .post(
-    auth(),
-    validate(tripValidation.cancelBooking),
-    tripController.cancelBooking
-  );
-
-router
-  .route('/:tripId/complete')
-  .post(
-    auth(),
-    validate(tripValidation.completeTrip),
-    tripController.completeTrip
-  );
+  .get(authOptional(), validate(tripValidation.getTrip), tripController.getTrip)
+  .patch(auth(), validate(tripValidation.updateTrip), tripController.updateTrip)
+  .delete(auth(), validate(tripValidation.deleteTrip), tripController.deleteTrip);
 
 export default router;

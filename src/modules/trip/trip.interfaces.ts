@@ -1,4 +1,4 @@
-import { Document } from 'mongoose';
+import { Document, Model } from 'mongoose';
 
 /**
  * Location interface for trip origin and destination
@@ -11,6 +11,7 @@ export interface ILocation {
   country?: string;
   latitude: number;
   longitude: number;
+  coordinates?: [number, number]; // GeoJSON format: [longitude, latitude] for 2dsphere index
 }
 
 /**
@@ -18,15 +19,19 @@ export interface ILocation {
  */
 export interface IPassenger {
   userId: string; // Reference to User
-  status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
+  status: 'pending' | 'confirmed' | 'rejected' | 'cancelled' | 'completed';
   seats: number; // Number of seats booked
   pricePerSeat: number; // Price paid per seat
   totalPrice: number; // Total price for this booking
   bookedAt: Date;
+  requestedAt?: Date; // When booking was requested
+  respondedAt?: Date; // When driver responded (accept/reject)
   cancelledAt?: Date;
   cancellationReason?: string;
+  rejectionReason?: string; // Reason for rejection
   pickupLocation?: ILocation; // Custom pickup if different from origin
   dropoffLocation?: ILocation; // Custom dropoff if different from destination
+  pickupNote?: string; // Note from passenger about pickup location
 }
 
 /**
@@ -125,7 +130,7 @@ export interface ITripDoc extends ITrip, Document {
   // Instance methods can be added here
 }
 
-export interface ITripModel {
+export interface ITripModel extends Model<ITripDoc> {
   // Static methods can be added here
 }
 
@@ -159,6 +164,7 @@ export interface BookTripDTO {
   seats: number;
   pickupLocation?: ILocation;
   dropoffLocation?: ILocation;
+  pickupNote?: string; // Note about pickup location
 }
 
 /**
@@ -194,6 +200,10 @@ export interface SearchTripsQuery {
   driverId?: string;
   page?: number;
   limit?: number;
-  sortBy?: 'departureDate' | 'pricePerSeat' | 'createdAt';
+  sortBy?: 'departureDate' | 'pricePerSeat' | 'createdAt' | 'relevance';
   sortOrder?: 'asc' | 'desc';
+  // Ranking parameters
+  useRanking?: boolean; // Enable ranking algorithm
+  userId?: string; // User ID for personalized ranking
+  preferredDepartureTime?: string; // HH:mm format
 }

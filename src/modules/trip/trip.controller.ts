@@ -1,17 +1,25 @@
 import { BookTripDTO, CreateTripDTO, SearchTripsQuery, TripStatus, UpdateTripDTO } from './trip.interfaces';
+import { Request, Response } from 'express';
 
 import catchAsync from '../utils/catchAsync';
 import httpStatus from 'http-status';
-import { Request, Response } from 'express';
+import mongoose from 'mongoose';
 import { tripService } from './index';
 
 /**
  * Create trip
  */
 const createTrip = catchAsync(async (req: Request, res: Response) => {
-  const driverId = req.user._id.toString();
+  const driverIdParam = req.user?._id;
+  const driverIdString = driverIdParam ? String(driverIdParam) : undefined;
+  if (!driverIdString) {
+    res.status(httpStatus.UNAUTHORIZED).send({ message: 'User authentication required' });
+    return;
+  }
+  
+  const driverId = new mongoose.Types.ObjectId(driverIdString);
   const tripData = req.body as CreateTripDTO;
-  const trip = await tripService.createTrip(driverId, tripData);
+  const trip = await tripService.createTrip(driverId.toString(), tripData);
   res.status(httpStatus.CREATED).send(trip);
 });
 
@@ -19,7 +27,8 @@ const createTrip = catchAsync(async (req: Request, res: Response) => {
  * Get trip by ID (public access)
  */
 const getTrip = catchAsync(async (req: Request, res: Response) => {
-  const tripId = req.params['tripId'];
+  const tripIdParam = req.params['tripId'];
+  const tripId = tripIdParam ? String(tripIdParam) : undefined;
   if (!tripId) {
     res.status(httpStatus.BAD_REQUEST).send({ message: 'Trip ID is required' });
     return;
@@ -41,14 +50,26 @@ const getTrip = catchAsync(async (req: Request, res: Response) => {
  * Update trip
  */
 const updateTrip = catchAsync(async (req: Request, res: Response) => {
-  const tripId = req.params['tripId'];
-  if (!tripId) {
+  const tripIdParam = req.params['tripId'];
+  const tripIdString = tripIdParam ? String(tripIdParam) : undefined;
+  if (!tripIdString) {
     res.status(httpStatus.BAD_REQUEST).send({ message: 'Trip ID is required' });
     return;
   }
+  
+  const userIdParam = req.user?._id;
+  const userIdString = userIdParam ? String(userIdParam) : undefined;
+  if (!userIdString) {
+    res.status(httpStatus.UNAUTHORIZED).send({ message: 'User authentication required' });
+    return;
+  }
+  
+  const tripId = new mongoose.Types.ObjectId(tripIdString);
+  const userId = new mongoose.Types.ObjectId(userIdString);
+  
   const trip = await tripService.updateTrip(
-    tripId,
-    req.user._id.toString(),
+    tripId.toString(),
+    userId.toString(),
     req.body as UpdateTripDTO
   );
   res.send(trip);
@@ -58,12 +79,24 @@ const updateTrip = catchAsync(async (req: Request, res: Response) => {
  * Delete trip
  */
 const deleteTrip = catchAsync(async (req: Request, res: Response) => {
-  const tripId = req.params['tripId'];
-  if (!tripId) {
+  const tripIdParam = req.params['tripId'];
+  const tripIdString = tripIdParam ? String(tripIdParam) : undefined;
+  if (!tripIdString) {
     res.status(httpStatus.BAD_REQUEST).send({ message: 'Trip ID is required' });
     return;
   }
-  await tripService.deleteTrip(tripId, req.user._id.toString());
+  
+  const userIdParam = req.user?._id;
+  const userIdString = userIdParam ? String(userIdParam) : undefined;
+  if (!userIdString) {
+    res.status(httpStatus.UNAUTHORIZED).send({ message: 'User authentication required' });
+    return;
+  }
+  
+  const tripId = new mongoose.Types.ObjectId(tripIdString);
+  const userId = new mongoose.Types.ObjectId(userIdString);
+  
+  await tripService.deleteTrip(tripId.toString(), userId.toString());
   res.status(httpStatus.NO_CONTENT).send();
 });
 
@@ -71,14 +104,26 @@ const deleteTrip = catchAsync(async (req: Request, res: Response) => {
  * Book trip
  */
 const bookTrip = catchAsync(async (req: Request, res: Response) => {
-  const tripId = req.params['tripId'];
-  if (!tripId) {
+  const tripIdParam = req.params['tripId'];
+  const tripIdString = tripIdParam ? String(tripIdParam) : undefined;
+  if (!tripIdString) {
     res.status(httpStatus.BAD_REQUEST).send({ message: 'Trip ID is required' });
     return;
   }
+  
+  const userIdParam = req.user?._id;
+  const userIdString = userIdParam ? String(userIdParam) : undefined;
+  if (!userIdString) {
+    res.status(httpStatus.UNAUTHORIZED).send({ message: 'User authentication required' });
+    return;
+  }
+  
+  const tripId = new mongoose.Types.ObjectId(tripIdString);
+  const userId = new mongoose.Types.ObjectId(userIdString);
+  
   const trip = await tripService.bookTrip(
-    tripId,
-    req.user._id.toString(),
+    tripId.toString(),
+    userId.toString(),
     req.body as BookTripDTO
   );
   res.status(httpStatus.CREATED).send(trip);
@@ -88,14 +133,91 @@ const bookTrip = catchAsync(async (req: Request, res: Response) => {
  * Cancel booking
  */
 const cancelBooking = catchAsync(async (req: Request, res: Response) => {
-  const tripId = req.params['tripId'];
-  if (!tripId) {
+  const tripIdParam = req.params['tripId'];
+  const tripIdString = tripIdParam ? String(tripIdParam) : undefined;
+  if (!tripIdString) {
     res.status(httpStatus.BAD_REQUEST).send({ message: 'Trip ID is required' });
     return;
   }
+  
+  const userIdParam = req.user?._id;
+  const userIdString = userIdParam ? String(userIdParam) : undefined;
+  if (!userIdString) {
+    res.status(httpStatus.UNAUTHORIZED).send({ message: 'User authentication required' });
+    return;
+  }
+  
+  const tripId = new mongoose.Types.ObjectId(tripIdString);
+  const userId = new mongoose.Types.ObjectId(userIdString);
+  
   const trip = await tripService.cancelBooking(
-    tripId,
-    req.user._id.toString(),
+    tripId.toString(),
+    userId.toString(),
+    req.body.reason
+  );
+  res.send(trip);
+});
+
+/**
+ * Accept booking request
+ */
+const acceptBooking = catchAsync(async (req: Request, res: Response) => {
+  const tripIdParam = req.params['tripId'];
+  const passengerIdParam = req.params['passengerId'];
+  const tripIdString = tripIdParam ? String(tripIdParam) : undefined;
+  const passengerIdString = passengerIdParam ? String(passengerIdParam) : undefined;
+  if (!tripIdString || !passengerIdString) {
+    res.status(httpStatus.BAD_REQUEST).send({ message: 'Trip ID and Passenger ID are required' });
+    return;
+  }
+  
+  const driverIdParam = req.user?._id;
+  const driverIdString = driverIdParam ? String(driverIdParam) : undefined;
+  if (!driverIdString) {
+    res.status(httpStatus.UNAUTHORIZED).send({ message: 'User authentication required' });
+    return;
+  }
+  
+  const tripId = new mongoose.Types.ObjectId(tripIdString);
+  const driverId = new mongoose.Types.ObjectId(driverIdString);
+  const passengerId = new mongoose.Types.ObjectId(passengerIdString);
+  
+  const trip = await tripService.acceptBooking(
+    tripId.toString(),
+    driverId.toString(),
+    passengerId.toString()
+  );
+  res.send(trip);
+});
+
+/**
+ * Reject booking request
+ */
+const rejectBooking = catchAsync(async (req: Request, res: Response) => {
+  const tripIdParam = req.params['tripId'];
+  const passengerIdParam = req.params['passengerId'];
+  const tripIdString = tripIdParam ? String(tripIdParam) : undefined;
+  const passengerIdString = passengerIdParam ? String(passengerIdParam) : undefined;
+  if (!tripIdString || !passengerIdString) {
+    res.status(httpStatus.BAD_REQUEST).send({ message: 'Trip ID and Passenger ID are required' });
+    return;
+  }
+  
+  const driverIdParam = req.user?._id;
+  const driverIdString = driverIdParam ? String(driverIdParam) : undefined;
+  if (!driverIdString) {
+    res.status(httpStatus.UNAUTHORIZED).send({ message: 'User authentication required' });
+    return;
+  }
+  
+  const tripId = new mongoose.Types.ObjectId(tripIdString);
+  const driverId = new mongoose.Types.ObjectId(driverIdString);
+  const passengerId = new mongoose.Types.ObjectId(passengerIdString);
+  
+  const trip = await tripService.rejectBooking(
+    tripId.toString(),
+    driverId.toString(),
+    passengerId.toString(),
     req.body.reason
   );
   res.send(trip);
@@ -162,6 +284,16 @@ const searchTrips = catchAsync(async (req: Request, res: Response) => {
     }
   }
 
+  // Handle ranking parameters
+  let useRanking: boolean | undefined;
+  if (query.useRanking !== undefined) {
+    if (typeof query.useRanking === 'string') {
+      useRanking = query.useRanking === 'true';
+    } else {
+      useRanking = Boolean(query.useRanking);
+    }
+  }
+
   const searchQuery: any = {};
   
   if (statusArray) {
@@ -172,6 +304,26 @@ const searchTrips = catchAsync(async (req: Request, res: Response) => {
   }
   if (destinationObj) {
     searchQuery.destination = destinationObj;
+  }
+  
+  // Add origin coordinates for ranking
+  if (query.originLatitude) {
+    searchQuery.originLatitude = Number(query.originLatitude);
+  }
+  if (query.originLongitude) {
+    searchQuery.originLongitude = Number(query.originLongitude);
+  }
+  if (query.originRadius) {
+    searchQuery.originRadius = Number(query.originRadius);
+  }
+  if (query.destinationLatitude) {
+    searchQuery.destinationLatitude = Number(query.destinationLatitude);
+  }
+  if (query.destinationLongitude) {
+    searchQuery.destinationLongitude = Number(query.destinationLongitude);
+  }
+  if (query.destinationRadius) {
+    searchQuery.destinationRadius = Number(query.destinationRadius);
   }
   
   if (query.departureDate) {
@@ -214,6 +366,22 @@ const searchTrips = catchAsync(async (req: Request, res: Response) => {
     searchQuery.sortOrder = query.sortOrder;
   }
   
+  // Ranking parameters
+  if (useRanking !== undefined) {
+    searchQuery.useRanking = useRanking;
+  }
+  // Get userId from authenticated user if available
+  if (req.user && req.user._id) {
+    const userIdParam = req.user._id;
+    const userId = userIdParam ? String(userIdParam) : undefined;
+    if (userId) {
+      searchQuery.userId = userId;
+    }
+  }
+  if (query.preferredDepartureTime) {
+    searchQuery.preferredDepartureTime = query.preferredDepartureTime as string;
+  }
+  
   const trips = await tripService.searchTrips(searchQuery);
   res.send(trips);
 });
@@ -222,7 +390,15 @@ const searchTrips = catchAsync(async (req: Request, res: Response) => {
  * Get trips by driver
  */
 const getMyTrips = catchAsync(async (req: Request, res: Response) => {
-  const trips = await tripService.getTripsByDriver(req.user._id.toString());
+  const userIdParam = req.user?._id;
+  const userIdString = userIdParam ? String(userIdParam) : undefined;
+  if (!userIdString) {
+    res.status(httpStatus.UNAUTHORIZED).send({ message: 'User authentication required' });
+    return;
+  }
+  
+  const userId = new mongoose.Types.ObjectId(userIdString);
+  const trips = await tripService.getTripsByDriver(userId.toString());
   res.send(trips);
 });
 
@@ -230,7 +406,15 @@ const getMyTrips = catchAsync(async (req: Request, res: Response) => {
  * Get trips where user is a passenger
  */
 const getMyBookings = catchAsync(async (req: Request, res: Response) => {
-  const trips = await tripService.getTripsByPassenger(req.user._id.toString());
+  const userIdParam = req.user?._id;
+  const userIdString = userIdParam ? String(userIdParam) : undefined;
+  if (!userIdString) {
+    res.status(httpStatus.UNAUTHORIZED).send({ message: 'User authentication required' });
+    return;
+  }
+  
+  const userId = new mongoose.Types.ObjectId(userIdString);
+  const trips = await tripService.getTripsByPassenger(userId.toString());
   res.send(trips);
 });
 
@@ -238,14 +422,26 @@ const getMyBookings = catchAsync(async (req: Request, res: Response) => {
  * Complete trip
  */
 const completeTrip = catchAsync(async (req: Request, res: Response) => {
-  const tripId = req.params['tripId'];
-  if (!tripId) {
+  const tripIdParam = req.params['tripId'];
+  const tripIdString = tripIdParam ? String(tripIdParam) : undefined;
+  if (!tripIdString) {
     res.status(httpStatus.BAD_REQUEST).send({ message: 'Trip ID is required' });
     return;
   }
+  
+  const driverIdParam = req.user?._id;
+  const driverIdString = driverIdParam ? String(driverIdParam) : undefined;
+  if (!driverIdString) {
+    res.status(httpStatus.UNAUTHORIZED).send({ message: 'User authentication required' });
+    return;
+  }
+  
+  const tripId = new mongoose.Types.ObjectId(tripIdString);
+  const driverId = new mongoose.Types.ObjectId(driverIdString);
+  
   const trip = await tripService.completeTrip(
-    tripId,
-    req.user._id.toString()
+    tripId.toString(),
+    driverId.toString()
   );
   res.send(trip);
 });
@@ -257,6 +453,8 @@ export default {
   deleteTrip,
   bookTrip,
   cancelBooking,
+  acceptBooking,
+  rejectBooking,
   searchTrips,
   getMyTrips,
   getMyBookings,

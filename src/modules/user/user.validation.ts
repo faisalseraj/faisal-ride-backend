@@ -57,8 +57,8 @@ export const getUsers = {
     search: Joi.string(),
     sortBy: Joi.string(),
     projectBy: Joi.string(),
-    limit: Joi.number().integer().min(1).max(100).default(10),
-    page: Joi.number().integer().min(1).default(1),
+    limit: Joi.number(),
+    page: Joi.number(),
   }),
 };
 
@@ -67,8 +67,8 @@ export const getRiders = {
     city: Joi.string(),
     isDriverVerified: Joi.boolean(),
     sortBy: Joi.string(),
-    limit: Joi.number().integer().min(1).max(100).default(10),
-    page: Joi.number().integer().min(1).default(1),
+    limit: Joi.number(),
+    page: Joi.number(),
   }),
 };
 

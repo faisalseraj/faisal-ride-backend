@@ -77,11 +77,10 @@ export const createAdmin = async (userBody: Partial<IUser>, createdBy: IUserDoc)
  * Helper to generate tokens and send welcome email after user creation
  */
 export const createUserHelper = async (user: IUserDoc, ) => {
-  const resetPasswordToken = await tokenService.generateResetPasswordToken(user.email!, 30);
   
   // Send welcome email
-  await emailService.sendResetPasswordEmail(user.email!, resetPasswordToken, user.fullName!, user);
-  
+  const verifyEmailToken = await tokenService.generateVerifyEmailToken(user!, user?.email!);
+  await emailService.sendVerificationEmail(user?.email!, verifyEmailToken, user.firstName, user);  
   const tokens = await tokenService.generateAuthTokens(user);
   return { user, tokens };
 };
@@ -262,11 +261,21 @@ export const updateProfile = async (
 export const syncLocation = async (
   userId: string,
   location: { latitude: number; longitude: number }
-): Promise<void> => {
-  await User.findByIdAndUpdate(userId, {
-    currentLocation: location,
-    isOnline: true,
-  });
+): Promise<IUserDoc> => {
+  const user = await User.findByIdAndUpdate(
+    userId,
+    {
+      currentLocation: location,
+      isOnline: true,
+    },
+    { new: true }
+  );
+  
+  if (!user) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'User not found');
+  }
+  
+  return user;
 };
 
 /**

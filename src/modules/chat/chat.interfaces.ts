@@ -5,10 +5,11 @@ import { IUserDoc } from '../user/user.interfaces';
 export interface IChatRoom {
   _id: string;
   name?: string;
-  type: 'direct' | 'group' | 'tow-request';
+  type: 'direct' | 'group' | 'tow-request' | 'trip';
   participants: IUserDoc['_id'][]; // Array of user IDs
   createdBy: IUserDoc['_id']; // User ID who created the room
   towRequestId?: string; // Optional: for tow-request specific chats
+  tripId?: string; // Optional: for trip-specific chats
   lastMessage?: string;
   lastMessageAt?: Date;
   isActive: boolean;
@@ -86,9 +87,10 @@ export interface IChatParticipantModel extends Model<IChatParticipantDoc> {
 // Request/Response interfaces
 export interface CreateRoomRequest {
   name?: string;
-  type: 'direct' | 'group' | 'tow-request';
+  type: 'direct' | 'group' | 'tow-request' | 'trip';
   participants: string[];
   towRequestId?: string;
+  tripId?: string;
   metadata?: {
     description?: string;
     avatar?: string;
@@ -119,7 +121,7 @@ export interface GetMessagesRequest {
 export interface ChatRoomResponse {
   id: string;
   name?: string;
-  type: 'direct' | 'group' | 'tow-request';
+  type: 'direct' | 'group' | 'tow-request' | 'trip';
   participants: {
     id: string;
     name: string;

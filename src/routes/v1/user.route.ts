@@ -46,7 +46,7 @@ router.route('/vehicle')
 router.route('/ride-preferences')
   .patch(auth(), validate(userValidation.updateRidePreferences), userController.updateRidePreferences);
 
-router.route('/location')
+router.route('/syncLocation')
   .post(auth(), validate(userValidation.syncLocation), userController.syncLocation);
 
 // ============================================

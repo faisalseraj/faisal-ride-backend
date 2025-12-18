@@ -37,6 +37,7 @@ const createTrip = {
     maxLuggage: Joi.number().min(0).optional(),
     routeDistance: Joi.number().optional(),
     routePolyline: Joi.string().optional(),
+    vehicleId: Joi.string().optional(),
   }),
 };
 
@@ -75,6 +76,7 @@ const bookTrip = {
     seats: Joi.number().min(1).required(),
     pickupLocation: locationSchema.optional(),
     dropoffLocation: locationSchema.optional(),
+    pickupNote: Joi.string().optional(),
   }),
 };
 

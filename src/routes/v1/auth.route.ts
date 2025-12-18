@@ -7,7 +7,7 @@ import { validate } from '../../modules/validate';
 
 const router: Router = express.Router();
 
-router.post('/register', authenticateApiKey, validate(authValidation.register), userController.createUser);
+router.post('/register', authenticateApiKey, validate(authValidation.register), userController.registerUser);
 
 router.post('/emailLogin', authenticateApiKey, validate(authValidation.login), authController.emailLoginAttempt);
 router.post(

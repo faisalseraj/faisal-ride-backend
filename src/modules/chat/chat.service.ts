@@ -355,7 +355,7 @@ if (sender && sender?._id) {
 
 // ---------- Room Management ----------
 export const createRoom = async (userId: string, roomData: CreateRoomRequest): Promise<ChatRoomResponse> => {
-  const { name, type, participants, towRequestId, metadata } = roomData;
+  const { name, type, participants, towRequestId, tripId, metadata } = roomData;
 
   // Validate participants
   const validParticipants = await User.find({
@@ -397,6 +397,58 @@ export const createRoom = async (userId: string, roomData: CreateRoomRequest): P
     }
 
     room = await Chat.ChatRoom.createTowRequestRoom(towRequestId, participants);
+  } else if (type === 'trip') {
+    if (!tripId) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Trip ID is required for trip type rooms');
+    }
+
+    // Import Trip model
+    const Trip = require('../trip/trip.model').default;
+    
+    // Verify trip exists and user has access
+    const trip = await Trip.findById(tripId);
+    if (!trip) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Trip not found');
+    }
+
+    // Check if user is driver or passenger
+    const driverId = trip.driverId.toString();
+    const isDriver = driverId === userId;
+    const isPassenger = (trip.passengers || []).some(
+      (p: any) => (p.userId?._id || p.userId)?.toString() === userId && p.status === 'confirmed'
+    );
+
+    if (!isDriver && !isPassenger) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'You do not have access to this trip chat');
+    }
+
+    // Check if trip room already exists
+    const existingRoom = await Chat.ChatRoom.findOne({
+      type: 'trip',
+      tripId,
+      isActive: true,
+    });
+
+    if (existingRoom) {
+      // Add user to existing room if not already a participant
+      if (!existingRoom.participants.some((p: any) => p.toString() === userId)) {
+        existingRoom.participants.push(userId as any);
+        await existingRoom.save();
+      }
+      room = existingRoom;
+    } else {
+      // Create new trip room
+      room = new Chat.ChatRoom({
+        name: name || `Trip Chat - ${trip.origin.city || trip.origin.address} to ${trip.destination.city || trip.destination.address}`,
+        type: 'trip',
+        participants: [...new Set([driverId, ...participants])], // Include driver and all participants
+        createdBy: userId as any,
+        tripId: tripId as any,
+        isActive: true,
+        metadata,
+      });
+      await room.save();
+    }
   } else {
     // Group room
     room = new Chat.ChatRoom({

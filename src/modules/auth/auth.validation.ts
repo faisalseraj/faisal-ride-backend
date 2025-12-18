@@ -4,12 +4,13 @@ import { password, phoneNumberValidation } from '../validate/custom.validation';
 import Joi from 'joi';
 
 const registerBody: Partial<Record<keyof NewRegisteredUser, any>> = {
-  email: Joi.string().email(),
+  email: Joi.string().email().required(),
   password: Joi.string().required(),
-  firstName: Joi.string().required(),
-  lastName: Joi.string().required(),
+  firstName: Joi.string().optional().allow(''),
+  lastName: Joi.string().optional().allow(''),
+  phoneNumber: Joi.string().optional().allow('').custom(phoneNumberValidation),
   userType: Joi.string()
-    .required()
+    .optional()
     .valid(...USER_TYPE),
 };
 

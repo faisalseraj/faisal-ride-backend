@@ -29,6 +29,34 @@ import { tokenService } from '../token';
 // ============================================
 
 /**
+ * Public registration endpoint (self-registration)
+ * Allows users to sign up with minimal info (email/password) and complete profile later
+ */
+export const registerUser = catchAsync(async (req: Request, res: Response) => {
+  const { email, password, firstName, lastName, phoneNumber, userType } = req.body;
+  
+  // Default to 'rider' if userType not provided
+  const finalUserType = userType || 'rider';
+  
+  // Create user with minimal required fields
+  // phoneNumber is optional - users can add it later in their profile
+  const userData: any = {
+    email,
+    password,
+    userType: finalUserType,
+    isDefaultPassword: false,
+    ...(firstName && { firstName }),
+    ...(lastName && { lastName }),
+    ...(phoneNumber && { phoneNumber }),
+  };
+  
+  const user = await userService.createRider(userData);
+  const userHelper = await userService.createUserHelper(user);
+  
+  res.status(httpStatus.CREATED).send(userHelper);
+});
+
+/**
  * Create a new user (admin only)
  */
 export const createUser = catchAsync(async (req: Request, res: Response) => {
@@ -466,9 +494,27 @@ export const updateSuperAdmin = catchAsync(async (req: Request, res: Response) =
 export const syncLocation = catchAsync(async (req: Request, res: Response) => {
   const loggedInUser = req.user as IUserDoc;
   
-  await userService.syncLocation(loggedInUser.id, req.body.location);
+  // Validate location data
+  if (!req.body.location || typeof req.body.location.latitude !== 'number' || typeof req.body.location.longitude !== 'number') {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Invalid location data. Latitude and longitude must be numbers.');
+  }
   
-  res.send({ message: 'Location updated' });
+  // Validate latitude range (-90 to 90)
+  if (req.body.location.latitude < -90 || req.body.location.latitude > 90) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Invalid latitude. Must be between -90 and 90.');
+  }
+  
+  // Validate longitude range (-180 to 180)
+  if (req.body.location.longitude < -180 || req.body.location.longitude > 180) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Invalid longitude. Must be between -180 and 180.');
+  }
+  
+  const updatedUser = await userService.syncLocation(loggedInUser.id, req.body.location);
+  
+  res.status(httpStatus.OK).send({ 
+    message: 'Location updated successfully',
+    user: updatedUser 
+  });
 });
 
 // ============================================

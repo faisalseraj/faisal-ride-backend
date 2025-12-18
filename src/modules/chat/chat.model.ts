@@ -14,7 +14,7 @@ const chatRoomSchema = new mongoose.Schema<IChatRoomDoc, IChatRoomModel>(
     },
     type: {
       type: String,
-      enum: ['direct', 'group', 'tow-request'],
+      enum: ['direct', 'group', 'tow-request', 'trip'],
       required: true,
     },
     participants: [{
@@ -30,6 +30,11 @@ const chatRoomSchema = new mongoose.Schema<IChatRoomDoc, IChatRoomModel>(
     towRequestId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'TowRequest',
+      required: false,
+    },
+    tripId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Trip',
       required: false,
     },
     lastMessage: {

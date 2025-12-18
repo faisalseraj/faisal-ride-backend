@@ -16,6 +16,10 @@ const locationSchema = new mongoose.Schema(
     country: { type: String, default: 'USA' },
     latitude: { type: Number, required: true },
     longitude: { type: Number, required: true },
+    // GeoJSON format for 2dsphere index: [longitude, latitude]
+    coordinates: {
+      type: [Number],
+    },
   },
   { _id: false }
 );
@@ -28,17 +32,21 @@ const passengerSchema = new mongoose.Schema(
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     status: {
       type: String,
-      enum: ['pending', 'confirmed', 'cancelled', 'completed'],
+      enum: ['pending', 'confirmed', 'rejected', 'cancelled', 'completed'],
       default: 'pending',
     },
     seats: { type: Number, required: true, min: 1 },
     pricePerSeat: { type: Number, required: true, min: 0 },
     totalPrice: { type: Number, required: true, min: 0 },
     bookedAt: { type: Date, default: Date.now },
+    requestedAt: { type: Date, default: Date.now }, // When booking was requested
+    respondedAt: { type: Date }, // When driver responded (accept/reject)
     cancelledAt: { type: Date },
     cancellationReason: { type: String },
+    rejectionReason: { type: String }, // Reason for rejection
     pickupLocation: { type: locationSchema },
     dropoffLocation: { type: locationSchema },
+    pickupNote: { type: String, maxlength: 500 }, // Note from passenger about pickup
   },
   { _id: true, timestamps: false }
 );
@@ -170,15 +178,31 @@ tripSchema.index({ 'origin.latitude': 1, 'origin.longitude': 1 });
 tripSchema.index({ 'destination.latitude': 1, 'destination.longitude': 1 });
 tripSchema.index({ 'passengers.userId': 1 });
 
+// Geo-spatial indexes for efficient $geoNear queries
+// Note: MongoDB requires coordinates as [longitude, latitude] for 2dsphere indexes
+tripSchema.index({ 'origin.coordinates': '2dsphere' });
+tripSchema.index({ 'destination.coordinates': '2dsphere' });
+
 // Plugins
 tripSchema.plugin(toJSON);
 tripSchema.plugin(paginate);
 
 /**
- * Pre-save hook to update available seats
+ * Pre-save hook to update available seats and coordinates
  */
 tripSchema.pre('save', function (next) {
   const doc = this as unknown as ITripDoc;
+  
+  // Update origin coordinates for geo-spatial index
+  if (doc.origin && doc.origin.longitude !== undefined && doc.origin.latitude !== undefined) {
+    doc.origin.coordinates = [doc.origin.longitude, doc.origin.latitude];
+  }
+  
+  // Update destination coordinates for geo-spatial index
+  if (doc.destination && doc.destination.longitude !== undefined && doc.destination.latitude !== undefined) {
+    doc.destination.coordinates = [doc.destination.longitude, doc.destination.latitude];
+  }
+  
   if (doc.isModified('passengers') || doc.isNew) {
     const confirmedPassengers = (doc.passengers || []).filter(
       (p: any) => p.status === 'confirmed'
